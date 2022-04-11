@@ -1,0 +1,70 @@
+edition: 1.0.0          #  命令行YAML规范版本，遵循语义化版本（Semantic Versioning）规范。
+name: kafka_to_oss      #  项目名称。
+access: default         #  密钥别名。
+
+vars:
+  service:
+    name: kafka_to_oss_demo
+    description: 'demo for kafka batch etl to oss'
+    internetAccess: true
+    role: 'acs:ram:::role/aliyunfcdefaultrole'
+    vpcConfig: # VPC配置, 配置后function可以访问指定VPC
+      vpcId: ''              # VPC ID
+      securityGroupId: ''    # 安全组ID
+      vswitchIds: # 交换机 ID 列表
+        - ''
+    logConfig: # log配置，function产生的log会写入这里配置的logstore
+      project: 'kafka-demo'                   # loghub中的project名称
+      logstore: 'function-logs'                  # loghub中的logstore名称
+      enableRequestMetrics: true     # RequestMetrics开关，取值true/false
+      enableInstanceMetrics: true    # InstanceMetrics开关，取值true/false
+      logBeginRule: 'DefaultRegex'
+
+services:
+  scheduler: #  服务名称。
+    component: devsapp/fc  # 组件名称。
+    props: #  组件的属性值。
+      region: cn-shanghai
+      service: ${vars.service}
+      function:
+        name: kafka_to_oss_scheduler
+        description: 'this is test'
+        codeUri: './scheduler'
+        handler: 'index.handler'
+        memorySize: 128
+        runtime: python3
+        timeout: 60
+        asyncConfiguration:
+          maxAsyncRetryAttempts: 0
+          statefulInvocation: true
+      triggers:
+        - name: timerTrigger            # 触发器名称
+          type: timer                   # 触发器类型
+          config:
+            cronExpression: '0 0/1 * * * ?' # 时间触发器表达式，支持两种设置：@every、cron 表达式
+            enable: true                  # 是否启用该触发器
+            payload: '{
+    "consumer_service_name":"kafka_to_oss_demo",
+    "consumer_function_name":"kafka_to_oss_consumer",
+    "topic_name":"",
+    "consumer_group_id":"",
+    "kafka_instance_id":,
+    "bucket_name":"",
+    "kafka_endpoint": ""
+}'         # 代表触发器事件本身的输入内容
+  consumer: #  服务名称。
+    component: devsapp/fc  # 组件名称。
+    props: #  组件的属性值。
+      region: cn-shanghai
+      service: ${vars.service}
+      function:
+        name: kafka_to_oss_consumer
+        description: 'this is test'
+        codeUri: './consumer'
+        handler: 'index.handler'
+        memorySize: 128
+        runtime: python3
+        timeout: 60
+        asyncConfiguration:
+          maxAsyncRetryAttempts: 0
+          statefulInvocation: true
